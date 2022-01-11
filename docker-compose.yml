@@ -1,0 +1,82 @@
+version: '3.7'
+
+
+
+networks:
+  redeszone:
+    name: redeszone
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+        
+homeassistant:
+    container_name: hass
+    image: homeassistant/home-assistant
+    networks:
+      redeszone:
+         ipv4_address: 172.30.1.15
+    ports:
+      - "8123:8123"
+    volumes:
+      - ${DOCKER_CARPETA}/hass-config:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - DISABLE_JEMALLOC=true 
+    restart: unless-stopped
+    depends_on:
+      - mosquitto    
+
+  nodered:
+    container_name: nodered
+    image: nodered/node-red
+    networks:
+      redeszone:
+         ipv4_address: 172.30.1.10
+    ports:
+      - "1880:1880"
+    volumes:
+      - ${DOCKER_CARPETA}/nodered:/data
+    depends_on:
+      - homeassistant
+      - mosquitto
+    environment:
+      TZ: "Europe/Madrid"
+    restart: unless-stopped
+    
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    
+    networks:
+      redeszone:
+         ipv4_address: 172.30.1.12
+    ports:
+      - "1883:1883"
+      - "1884:1884"
+    volumes:
+      - "${DOCKER_CARPETA}/mosquitto/config:/mosquitto/config"
+      - "${DOCKER_CARPETA}/mosquitto/data:/mosquitto/data"
+      - "${DOCKER_CARPETA}/mosquitto/log:/mosquitto/log"
+    environment:
+      - TZ=Europe/Madrid
+    user: "${PUID}:${PGID}"
+    
+  hass-configurator:
+    image: "causticlab/hass-configurator-docker:arm"
+    container_name: hass-configurator
+    restart: unless-stopped
+    networks:
+      redeszone:
+         ipv4_address: 172.30.1.11
+    ports:
+      - "3218:3218/tcp"
+    depends_on:
+      - homeassistant
+    volumes:
+      - "${DOCKER_CARPETA}/configurator-config:/config"
+      - "${DOCKER_CARPETA}/hass-config:/hass-config"
+    user: "${PUID}:${PGID}"
+  
+ 
